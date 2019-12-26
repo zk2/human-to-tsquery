@@ -1,0 +1,37 @@
+{
+    "name": "zk2/human-to-tsquery",
+    "description": "Convert human request to postgres ts_query",
+    "homepage": "https://github.com/zk2/human-to-tsquery",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Evgeniy Budanov",
+            "email": "budanov.ua@gmail.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Zk2\\HumanToTsquery\\": "src/"
+        },
+        "classmap": [
+            "src/"
+        ]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Zk2\\Tests\\": "tests/"
+        }
+    },
+    "require": {
+        "php": ">=7.2,<8.0"
+    },
+    "require-dev": {
+        "ext-pdo": "*",
+        "ext-pdo_pgsql": "*",
+        "phpunit/phpunit": "^8.5",
+        "doctrine/dbal": "^2.10",
+        "symfony/var-dumper": "^5.0",
+        "1happyplace/phpunit-colors": "^1.1"
+    }
+}
