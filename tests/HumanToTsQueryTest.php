@@ -47,7 +47,7 @@ class HumanToTsQueryTest extends TestCase
         $function = function (string $sql) use ($connection) {
             $stmt = $connection->executeQuery($sql);
 
-            return $stmt->fetchColumn();
+            return $stmt->fetchColumn(0);
         };
 
         $humanToTsQuery = new HumanToTsQuery($humanQuery);
