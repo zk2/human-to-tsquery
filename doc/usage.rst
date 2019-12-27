@@ -13,4 +13,4 @@ Usage
     };
     $humanToTsQuery = new HumanToTsQuery('Opel AND (auto car (patrol OR diesel OR "electric car") AND -sale)');
     $tsQuery = $humanToTsQuery->getQuery($closure);
-    var_dump($tsQuery); // string(67) "opel & (auto & car & (patrol | diesel | (electr <-> car)) & !sale)"
+    var_dump($tsQuery); // string(66) "opel & (auto & car & (patrol | diesel | (electr <-> car)) & !sale)"

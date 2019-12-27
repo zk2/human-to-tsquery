@@ -1,13 +1,13 @@
 zk2\human-to-tsquery
 ================
 
-[![Build Status](https://travis-ci.org/zk2/human-to-tsquery.svg?branch=master)](https://travis-ci.org/zk2/SPSComponent)
+[![Build Status](https://travis-ci.com/zk2/human-to-tsquery.svg?branch=master)](https://travis-ci.org/zk2/human-to-tsquery)
 
-[![Latest Stable Version](https://poser.pugx.org/zk2/human-to-tsquery/v/stable)](https://packagist.org/packages/zk2/sps-component)
-[![Total Downloads](https://poser.pugx.org/zk2/human-to-tsquery/downloads)](https://packagist.org/packages/zk2/sps-component)
-[![Latest Unstable Version](https://poser.pugx.org/zk2/human-to-tsquery/v/unstable)](https://packagist.org/packages/zk2/sps-component)
-[![License](https://poser.pugx.org/zk2/human-to-tsquery/license)](https://packagist.org/packages/zk2/sps-component)
-[![composer.lock](https://poser.pugx.org/zk2/human-to-tsquery/composerlock)](https://packagist.org/packages/zk2/sps-component)
+[![Latest Stable Version](https://poser.pugx.org/zk2/human-to-tsquery/v/stable)](https://packagist.org/packages/zk2/human-to-tsquery)
+[![Total Downloads](https://poser.pugx.org/zk2/human-to-tsquery/downloads)](https://packagist.org/packages/zk2/human-to-tsquery)
+[![Latest Unstable Version](https://poser.pugx.org/zk2/human-to-tsquery/v/unstable)](https://packagist.org/packages/zk2/human-to-tsquery)
+[![License](https://poser.pugx.org/zk2/human-to-tsquery/license)](https://packagist.org/packages/zk2/human-to-tsquery)
+[![composer.lock](https://poser.pugx.org/zk2/human-to-tsquery/composerlock)](https://packagist.org/packages/zk2/human-to-tsquery)
 
 Human query to ts_query for PostgreSQL full text search (https://www.postgresql.org/docs/12/textsearch.html). Provides a clement parser and associated tools for a convert human query to query which can be used ih Postgres Full Text Search. Lenient in that is will produce a parse tree for any input, given a default operator and by generally ignoring any unparsable syntax.
 
