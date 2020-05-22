@@ -60,18 +60,19 @@ class HumanToTsQuery
 
     /**
      * @param \Closure|null $sqlExecutor - The Closure should take a SQL string and return a string
+     * @param string        $conf        - regconfig (english, simple, etc...)
      *
      * @return string
      *
      * @throws HumanToTsQueryException
      */
-    public function getQuery(\Closure $sqlExecutor = null): string
+    public function getQuery(\Closure $sqlExecutor = null, string $conf = 'english'): string
     {
         $this->validate();
         $this->parse();
         $tsQuery = '';
         foreach ($this->nodes as $node) {
-            $node->getTsQuery($sqlExecutor);
+            $node->getTsQuery($sqlExecutor, $conf);
             $tsQuery .= $node->buildQuery();
         }
 
@@ -80,23 +81,24 @@ class HumanToTsQuery
 
     /**
      * @param \Closure|null $sqlExecutor - The Closure should take a SQL string and return a string
+     * @param string        $conf        - regconfig (english, simple, etc...)
      *
      * @return null|string
      *
      * @throws HumanToTsQueryException
      */
-    protected function getTsQuery(\Closure $sqlExecutor = null): ?string
+    protected function getTsQuery(\Closure $sqlExecutor = null, string $conf = 'english'): ?string
     {
         if ($function = static::TS_FUNCTION) {
             if ($sqlExecutor) {
                 $sqlExecutor->bindTo($this);
-                $this->tsQuery = $sqlExecutor->call($this, sprintf("SELECT %s('%s')", $function, str_replace("'", "''", $this->token)));
+                $this->tsQuery = $sqlExecutor->call($this, sprintf("SELECT %s('%s', '%s')", $function, $conf, str_replace("'", "''", $this->token)));
             } else {
                 $this->tsQuery = $this->token;
             }
         } elseif ($this->nodes) {
             foreach ($this->nodes as $node) {
-                $this->tsQuery = $node->getTsQuery($sqlExecutor);
+                $this->tsQuery = $node->getTsQuery($sqlExecutor, $conf);
             }
         }
 

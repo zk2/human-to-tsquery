@@ -12,8 +12,5 @@ namespace Zk2\HumanToTsQuery;
 
 interface HumanToTsQueryInterface
 {
-    /**
-     * @return string
-     */
-    public function getQuery(): string;
+    public function getQuery(\Closure $sqlExecutor = null, string $conf = 'english'): string;
 }

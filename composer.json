@@ -12,7 +12,7 @@
     ],
     "autoload": {
         "psr-4": {
-            "Zk2\\HumanToTsquery\\": "src/"
+            "Zk2\\HumanToTsquery\\": "src/Zk2/HumanToTsquery"
         },
         "classmap": [
             "src/"
