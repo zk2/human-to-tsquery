@@ -234,6 +234,7 @@ class HumanToTsQuery
         $this->token = str_replace(['&', '|'], '', $this->token);
         $this->token = trim(preg_replace('/\s{2,}/', ' ', $this->token));
         $this->token = str_replace(['( ', ' )'], ['(', ')'], $this->token);
+        $this->token = str_replace(['((', '))'], ['( (', ') )'], $this->token);
         preg_match_all('/"([^"]*)"/', $this->token, $matched);
         $this->token = str_replace(
             $matched[0],
