@@ -87,6 +87,8 @@ class HumanToTsQueryTest extends TestCase
             ['Nissan\'s AND \'Qashqai\' (auto AND \'car\' (patrol OR diesel OR "electric car") AND sale)'],
             ['Opel AND -(auto car (patrol OR diesel OR "electric car") AND -sale)'],
             ['Nissan\'s AND -\'Qashqai\' (auto AND \'car\' (patrol OR diesel OR "electric car") AND sale)'],
+            ['(Opel N2 auto) AND (auto car (patrol OR diesel OR "electric car") AND sale)'],
+            ['Opel N5 car'],
         ];
     }
 
@@ -100,6 +102,7 @@ class HumanToTsQueryTest extends TestCase
             ['Nissan\'s AND \'Qashqai\' (auto AND \'car\' (patrol OR "diesel OR "electric car") AND sale)'],
             ['Opel) AND -(auto car (patrol OR diesel OR "electric car") AND -sale)'],
             ['"Nissan\'s AND -\'Qashqai\' (auto AND \'car\' (patrol OR diesel OR "electric car") AND sale)'],
+            ['Opel N5 AND Car'],
         ];
     }
 
