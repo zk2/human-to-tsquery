@@ -117,6 +117,9 @@ class HumanToTsQuery
             if (in_array($arrayTokens[$i], array_keys(self::LOGICAL_OPERATORS))) {
                 continue;
             }
+            if (self::isProximityOperator($arrayTokens[$i])) {
+                continue;
+            }
             $node = null;
             if ($exclude = ('-' === substr($arrayTokens[$i], 0, 1))) {
                 $arrayTokens[$i] = substr($arrayTokens[$i], 1);
@@ -129,6 +132,10 @@ class HumanToTsQuery
                 $subQueryData = $this->processQuotes($i, $count, $arrayTokens);
                 $i = $subQueryData['key'];
                 $node = new QuotesNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
+            } elseif($this->checkProximitySearch($i, $arrayTokens)) {
+                $subQueryData = $this->processProximity($i, $arrayTokens);
+                $i = $subQueryData['key'];
+                $node = new ProximityNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
             } else {
                 $node = new SimpleNode($arrayTokens[$i], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
             }
@@ -158,7 +165,7 @@ class HumanToTsQuery
     {
         $logicalOperator = null;
         if (isset($arrayTokens[$i + 1])) {
-            if (in_array($arrayTokens[$i + 1], array_keys(self::LOGICAL_OPERATORS))) {
+            if (in_array($arrayTokens[$i + 1], array_keys(self::LOGICAL_OPERATORS)) || self::isProximityOperator($arrayTokens[$i + 1])) {
                 $logicalOperator = $arrayTokens[$i + 1];
             } else {
                 $logicalOperator = 'AND';
@@ -224,6 +231,21 @@ class HumanToTsQuery
     }
 
     /**
+     * @param int   $i
+     * @param int   $count
+     * @param array $arrayTokens
+     *
+     * @return array
+     */
+    private function processProximity(int $i, array $arrayTokens): array
+    {
+        $subQuery = [$arrayTokens[$i], $arrayTokens[$i + 1], $arrayTokens[$i + 2]];
+        $returnKey = $i + 2;
+
+        return ['key' => $returnKey, 'subQuery' => implode(' ', $subQuery)];
+    }
+
+    /**
      * @throws HumanToTsQueryException
      */
     private function validate(): void
@@ -232,6 +254,7 @@ class HumanToTsQuery
             throw new HumanToTsQueryException(sprintf('The query is not valid: %s', $this->token));
         }
         $this->token = str_replace(['&', '|'], '', $this->token);
+        $this->token = str_replace('/<\d+>/', '', $this->token);
         $this->token = trim(preg_replace('/\s{2,}/', ' ', $this->token));
         $this->token = str_replace(['( ', ' )'], ['(', ')'], $this->token);
         $this->token = str_replace(['((((', '))))', '(((', ')))', '((', '))'], ['( ( ( (', ') ) ) )', '( ( (', ') ) )', '( (', ') )'], $this->token);
@@ -269,5 +292,17 @@ class HumanToTsQuery
             }
         }
         return 0 === count($brackets) && count($quotes) % 2 === 0;
+    }
+
+    private function checkProximitySearch(int $i, array $arrayTokens): bool 
+    {
+        return isset($arrayTokens[$i + 1]) && 
+                self::isProximityOperator($arrayTokens[$i + 1]) && 
+                isset($arrayTokens[$i + 2]);
+    }
+
+    protected static function isProximityOperator(string $str): bool 
+    {
+        return preg_match('/^N\d+$/', $str);
     }
 }
