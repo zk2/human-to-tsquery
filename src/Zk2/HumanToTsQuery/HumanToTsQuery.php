@@ -303,6 +303,6 @@ class HumanToTsQuery
 
     protected static function isProximityOperator(string $str): bool 
     {
-        return preg_match('/^N\d+$/', $str);
+        return preg_match('/^[NW]\d+$/', $str);
     }
 }

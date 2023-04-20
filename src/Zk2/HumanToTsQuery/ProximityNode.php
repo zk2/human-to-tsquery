@@ -61,11 +61,11 @@ class ProximityNode extends HumanToTsQuery implements HumanToTsQueryInterface
         $term1 = strtolower($arrayTokens[0]);
         $term2 = strtolower($arrayTokens[2]);
         $proximity = preg_replace('/\D+/', '', $arrayTokens[1]);
+        $order = preg_replace('/[^NW]/', '', $arrayTokens[1]);
         $count = $proximity + 1;
 
         for ($i = 1; $i <= $count; $i++) {
-            $this->nodes[] = new SimpleNode("{$term1} <{$i}> {$term2}", false, 'OR');
-            $this->nodes[] = new SimpleNode("{$term2} <{$i}> {$term1}", false, $i !== $count ? 'OR' : null);
+            $this->addNodes($i, $count, $term1, $term2, $order === 'W');
         }
     }
 
@@ -81,5 +81,15 @@ class ProximityNode extends HumanToTsQuery implements HumanToTsQueryInterface
             $token .= $node->buildQuery();
         }
         return sprintf('%s%s %s ', $this->exclude ? '!' : null, trim($token), $this->logicalOperator);
+    }
+
+    private function addNodes(int $i, int $count, string $term1, string $term2, bool $isOrder): void
+    {
+        if ($isOrder) {
+            $this->nodes[] = new SimpleNode("{$term1} <{$i}> {$term2}", false, $i !== $count ? 'OR' : null);
+        } else {
+            $this->nodes[] = new SimpleNode("{$term1} <{$i}> {$term2}", false, 'OR');
+            $this->nodes[] = new SimpleNode("{$term2} <{$i}> {$term1}", false, $i !== $count ? 'OR' : null);
+        }
     }
 }
