@@ -14,23 +14,9 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
 {
     const TS_FUNCTION = 'plainto_tsquery';
 
-    /**
-     * SimpleNode constructor.
-     *
-     * @param string      $token
-     * @param bool        $exclude
-     * @param string|null $logicalOperator
-     */
-    public function __construct(string $token, bool $exclude, ?string $logicalOperator)
-    {
-        parent::__construct($token, $exclude, $logicalOperator);
-    }
-
-    /**
-     * @return string|null
-     */
     protected function buildQuery(): ?string
     {
+        $this->buildTsQuery();
         if ($this->tsQuery) {
             return sprintf('%s%s %s ', $this->exclude ? '!' : null, $this->tsQuery, $this->logicalOperator);
         }

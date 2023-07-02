@@ -19,35 +19,22 @@ use PHPUnitColors\Display;
 use Zk2\HumanToTsQuery\HumanToTsQuery;
 use Zk2\HumanToTsQuery\HumanToTsQueryException;
 
-/**
- * Class AbstractQueryBuilderTest
- */
 class HumanToTsQueryTest extends TestCase
 {
-    /**
-     * @var Connection
-     */
-    protected $connection;
+    protected Connection $connection;
 
-    /**
-     * @var bool
-     */
-    protected $realPostgres;
+    protected bool $realPostgres = false;
 
     /**
      * @dataProvider humanQueries
-     *
-     * @param $humanQuery
-     *
-     * @throws HumanToTsQueryException
      */
-    public function test($humanQuery)
+    public function test(string $humanQuery): void
     {
         $connection = $this->connection;
         $function = function (string $sql) use ($connection) {
             $stmt = $connection->executeQuery($sql);
 
-            return $stmt->fetchColumn(0);
+            return $stmt->fetchOne();
         };
 
         $humanToTsQuery = new HumanToTsQuery($humanQuery);
@@ -57,19 +44,15 @@ class HumanToTsQueryTest extends TestCase
 
     /**
      * @dataProvider badHumanQueries
-     *
-     * @param $humanQuery
-     *
-     * @throws HumanToTsQueryException
      */
-    public function testBad($humanQuery)
+    public function testBad(string $humanQuery): void
     {
         $this->expectException(HumanToTsQueryException::class);
         $humanToTsQuery = new HumanToTsQuery($humanQuery);
         $humanToTsQuery->getQuery();
     }
 
-    public function testIsPostgres()
+    public function testIsPostgres(): void
     {
         if (false === $this->realPostgres) {
             echo Display::caution(" Docker is down...");
@@ -77,12 +60,10 @@ class HumanToTsQueryTest extends TestCase
         $this->assertTrue(true);
     }
 
-    /**
-     * @return array
-     */
-    public function humanQueries()
+    public function humanQueries(): array
     {
         return [
+            ['(indigenous OR texas) W2 ("debt financing" OR lalala) AND ("New York" OR Boston)'],
             ['Opel AND (auto car (patrol OR diesel OR "electric car") AND sale)'],
             ['Nissan\'s AND \'Qashqai\' (auto AND \'car\' (patrol OR diesel OR "electric car") AND sale)'],
             ['Opel AND -(auto car (patrol OR diesel OR "electric car") AND -sale)'],
@@ -94,10 +75,7 @@ class HumanToTsQueryTest extends TestCase
         ];
     }
 
-    /**
-     * @return array
-     */
-    public function badHumanQueries()
+    public function badHumanQueries(): array
     {
         return [
             ['Opel AND (auto) car (patrol OR diesel OR "electric car") AND sale)'],
@@ -106,13 +84,11 @@ class HumanToTsQueryTest extends TestCase
             ['"Nissan\'s AND -\'Qashqai\' (auto AND \'car\' (patrol OR diesel OR "electric car") AND sale)'],
             ['Opel N5 AND Car'],
             ['Opel W5 AND Car'],
+            ['Opel OR AND Car'],
         ];
     }
 
-    /**
-     * @return \Doctrine\DBAL\Connection|MockObject
-     */
-    protected function getConnectionMock()
+    protected function getConnectionMock(): Connection
     {
         $mock = $this->getMockBuilder('Doctrine\DBAL\Connection')
             ->disableOriginalConstructor()
@@ -125,33 +101,21 @@ class HumanToTsQueryTest extends TestCase
         return $mock;
     }
 
-    /**
-     * @return \Doctrine\DBAL\Driver\Statement|MockObject
-     */
-    protected function getStatementMock()
+    protected function getStatementMock(): MockObject
     {
-        $mock = $this->getAbstractMock('Doctrine\DBAL\Driver\Statement', ['fetchColumn']);
+        $mock = $this->getAbstractMock('Doctrine\DBAL\Driver\Statement', ['fetchOne']);
         $mock->expects($this->any())
-            ->method('fetchColumn')
+            ->method('fetchOne')
             ->will($this->returnValue('token'));
 
         return $mock;
     }
 
-    /**
-     * @param string $class   The class name
-     * @param array  $methods The available methods
-     *
-     * @return MockObject
-     */
-    protected function getAbstractMock($class, array $methods)
+    protected function getAbstractMock(string $class, array $methods): MockObject
     {
         return $this->getMockForAbstractClass($class, [], '', true, true, true, $methods, false);
     }
 
-    /**
-     * @throws \Doctrine\DBAL\DBALException
-     */
     protected function setUp(): void
     {
         parent::setUp();
@@ -171,7 +135,6 @@ class HumanToTsQueryTest extends TestCase
             $this->connection = DriverManager::getConnection($connectionParams, $config);
         } else {
             $this->connection = $this->getConnectionMock();
-            //echo Display::caution(" Docker is down...");
         }
     }
 }

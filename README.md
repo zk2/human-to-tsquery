@@ -15,6 +15,10 @@ The query language supports the following features at a high level:
 
    - Boolean operators: AND (infix), OR (infix), "-" (prefix) with an implied default operator and precedence rules, e.g. "boy OR girl -infant"
 
+   - Proximity Near Operator (Nx) - `television N2 violence` - Finds words within x number of words from each other, regardless of the order in which they occur.
+
+   - Proximity Within Operator (Wx)	- `Franklin W2 Roosevelt` - Finds words within x number of words from each other, in the order they are entered in the search.
+
    - Optional parenthesis for explicitly denoting precedence.
 
    - Quoted phrases (for proximity matching)
@@ -22,7 +26,21 @@ The query language supports the following features at a high level:
 Documentation
 -------------
 
-[Usage](https://github.com/zk2/human-to-tsquery/blob/master/doc/usage.rst)
+    // Some function, which getting SQL query and return single string result
+    $closure = function (string $sql) use ($connection) {
+        return $connection->fetchOne($sql);
+    };
+    $humanToTsQuery = new HumanToTsQuery('Opel AND (auto car (patrol OR diesel OR "electric car") AND -sale)');
+    $tsQuery = $humanToTsQuery->getQuery($closure);
+    var_dump($tsQuery); // "opel & (auto & car & (patrol | diesel | (electr <-> car)) & !sale)"
+
+    $humanToTsQuery = new HumanToTsQuery('indigenous N2 ("debt financing" OR lalala) AND ("New York" OR Boston)');
+    $tsQuery = $humanToTsQuery->getQuery($closure);
+    var_dump($tsQuery); // "(indigen <2> ((debt <-> financ) | lalala ) | ((debt <-> financ) | lalala ) <2> indigen | indigen <1> ((debt <-> financ) | lalala ) | ((debt <-> financ) | lalala ) <1> indigen) & ((new <-> york) | boston )"
+
+    $humanToTsQuery = new HumanToTsQuery('(indigenous OR texas) W2 ("debt financing" OR lalala) AND ("New York" OR Boston)');
+    $tsQuery = $humanToTsQuery->getQuery($closure);
+    var_dump($tsQuery); // "((indigen | texa ) <2> ((debt <-> financ) | lalala ) | (indigen | texa ) <1> ((debt <-> financ) | lalala )) & ((new <-> york) | boston )"
 
 Running the Tests
 -----------------

@@ -14,130 +14,93 @@ class HumanToTsQuery
 {
     const TS_FUNCTION = null;
 
-    const LOGICAL_OPERATORS = [
-        'AND' => '&',
-        'OR' => '|',
-    ];
-
     /**
-     * @var HumanToTsQuery[]
+     * @var array|HumanToTsQuery[]
      */
-    protected $nodes = [];
+    protected array $nodes = [];
 
-    /**
-     * @var string
-     */
-    protected $token;
+    protected string $token;
 
-    /**
-     * @var string
-     */
-    protected $tsQuery;
+    protected ?string $tsQuery = null;
 
-    /**
-     * @var bool
-     */
-    protected $exclude;
+    protected bool $exclude = false;
 
-    /**
-     * @var string|null
-     */
-    protected $logicalOperator;
+    protected ?LogicalOperator $logicalOperator;
 
-    /**
-     * HumanQueryToTsQuery constructor.
-     *
-     * @param string      $token
-     * @param bool        $exclude
-     * @param string|null $logicalOperator
-     */
-    public function __construct(string $token, bool $exclude = false, ?string $logicalOperator = null)
+    protected int $countOfLexemes;
+
+    protected ?\Closure $sqlExecutor = null;
+
+    protected string $conf = 'english';
+
+    public function __construct(string $token, bool $exclude = false, ?LogicalOperator $logicalOperator = null, \Closure $sqlExecutor = null, string $conf = 'english')
     {
         $this->token = $token;
+        $this->countOfLexemes = count(explode(' ', $token));
         $this->exclude = $exclude;
-        $this->logicalOperator = $logicalOperator ? self::LOGICAL_OPERATORS[$logicalOperator] : null;
+        $this->logicalOperator = null === $logicalOperator ? LogicalOperator::create($logicalOperator) : $logicalOperator;
+        $this->sqlExecutor = $sqlExecutor;
+        $this->conf = $conf;
     }
 
-    /**
-     * @param \Closure|null $sqlExecutor - The Closure should take a SQL string and return a string
-     * @param string        $conf        - regconfig (english, simple, etc...)
-     *
-     * @return string
-     *
-     * @throws HumanToTsQueryException
-     */
     public function getQuery(\Closure $sqlExecutor = null, string $conf = 'english'): string
     {
         $this->validate();
+        $this->sqlExecutor = $sqlExecutor;
+        $this->conf = $conf;
         $this->parse();
         $tsQuery = '';
         foreach ($this->nodes as $node) {
-            $node->getTsQuery($sqlExecutor, $conf);
             $tsQuery .= $node->buildQuery();
         }
 
         return str_replace("'", "", trim(str_replace('&)', ')', $tsQuery), ' |&'));
     }
 
-    /**
-     * @param \Closure|null $sqlExecutor - The Closure should take a SQL string and return a string
-     * @param string        $conf        - regconfig (english, simple, etc...)
-     *
-     * @return null|string
-     *
-     * @throws HumanToTsQueryException
-     */
-    protected function getTsQuery(\Closure $sqlExecutor = null, string $conf = 'english'): ?string
+    protected function buildTsQuery(): self
     {
         if ($function = static::TS_FUNCTION) {
-            if ($sqlExecutor) {
-                $sqlExecutor->bindTo($this);
-                $this->tsQuery = $sqlExecutor->call($this, sprintf("SELECT %s('%s', '%s')", $function, $conf, str_replace("'", "''", $this->token)));
+            if ($this->sqlExecutor) {
+                $this->tsQuery = $this->sqlExecutor
+                    ->bindTo($this)
+                    ->call(
+                        $this, sprintf("SELECT %s('%s', '%s')", $function, $this->conf, str_replace("'", "''", $this->token))
+                    );
             } else {
                 $this->tsQuery = $this->token;
             }
         } elseif ($this->nodes) {
             foreach ($this->nodes as $node) {
-                $this->tsQuery = $node->getTsQuery($sqlExecutor, $conf);
+                $node->buildTsQuery();
             }
         }
 
-        return $this->tsQuery;
+        return $this;
     }
 
-    /**
-     * Build array of nodes
-     */
     protected function parse(): void
     {
         $arrayTokens = explode(' ', $this->token);
         $count = count($arrayTokens);
-
         for ($i = 0; $i < $count; $i++) {
-            if (in_array($arrayTokens[$i], array_keys(self::LOGICAL_OPERATORS))) {
-                continue;
-            }
-            if (self::isProximityOperator($arrayTokens[$i])) {
+            if (LogicalOperator::check($arrayTokens[$i])) {
                 continue;
             }
             $node = null;
-            if ($exclude = ('-' === substr($arrayTokens[$i], 0, 1))) {
-                $arrayTokens[$i] = substr($arrayTokens[$i], 1);
-            }
-            if ('(' === substr($arrayTokens[$i], 0, 1)) {
-                $subQueryData = $this->processBrackets($i, $count, $arrayTokens);
-                $i = $subQueryData['key'];
-                $node = new BracketsNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
-            } elseif ('"' === substr($arrayTokens[$i], 0, 1)) {
-                $subQueryData = $this->processQuotes($i, $count, $arrayTokens);
-                $i = $subQueryData['key'];
-                $node = new QuotesNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
-            } elseif($this->checkProximitySearch($i, $arrayTokens)) {
-                $subQueryData = $this->processProximity($i, $arrayTokens);
-                $i = $subQueryData['key'];
-                $node = new ProximityNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
+            $leftNode = $this->getNode($arrayTokens, $i);
+            if ($leftNode->logicalOperator && $leftNode->logicalOperator->isProximity()) {
+                if (isset($arrayTokens[$i + $leftNode->countOfLexemes + 1])) {
+                    $rightNode = $this->getNode($arrayTokens, $i + $leftNode->countOfLexemes + 1);
+                    $node = new ProximityNode($leftNode, $rightNode, false, $rightNode->logicalOperator, $this->sqlExecutor, $this->conf);
+                    $i += $leftNode->countOfLexemes + $rightNode->countOfLexemes + 1;
+                }
             } else {
-                $node = new SimpleNode($arrayTokens[$i], $exclude, $this->defineLogicalOperator($i, $arrayTokens));
+                if (in_array($arrayTokens[$i] ?? null, ['AND', 'OR'])) {
+                    $i += $leftNode->countOfLexemes;
+                } else {
+                    $i += $leftNode->countOfLexemes -1;
+                }
+                $node = $leftNode;
             }
             if ($node) {
                 $this->nodes[] = $node;
@@ -145,59 +108,59 @@ class HumanToTsQuery
         }
     }
 
-    /**
-     * @return string|null
-     *
-     * @throws HumanToTsQueryException
-     */
+    protected function getNode(array $arrayTokens, int $i): HumanToTsQuery
+    {
+        if ($exclude = ('-' === substr($arrayTokens[$i], 0, 1))) {
+            $arrayTokens[$i] = substr($arrayTokens[$i], 1);
+        }
+        if ('(' === substr($arrayTokens[$i], 0, 1)) {
+            $subQueryData = $this->processBrackets($i, $arrayTokens);
+            $i = $subQueryData['key'];
+            $node = new BracketsNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($arrayTokens, $i), $this->sqlExecutor, $this->conf);
+        } elseif ('"' === substr($arrayTokens[$i], 0, 1)) {
+            $subQueryData = $this->processQuotes($i, $arrayTokens);
+            $i = $subQueryData['key'];
+            $node = new QuotesNode($subQueryData['subQuery'], $exclude, $this->defineLogicalOperator($arrayTokens, $i), $this->sqlExecutor, $this->conf);
+        } else {
+            $node = new SimpleNode($arrayTokens[$i], $exclude, $this->defineLogicalOperator($arrayTokens, $i), $this->sqlExecutor, $this->conf);
+        }
+
+        return $node;
+    }
+
     protected function buildQuery(): ?string
     {
         throw new HumanToTsQueryException('The method is available only for end nodes.');
     }
 
-    /**
-     * @param int   $i
-     * @param array $arrayTokens
-     *
-     * @return string|null
-     */
-    private function defineLogicalOperator(int $i, array $arrayTokens): ?string
+    private function defineLogicalOperator(array $arrayTokens, ?int $key): LogicalOperator
     {
-        $logicalOperator = null;
-        if (isset($arrayTokens[$i + 1])) {
-            if (in_array($arrayTokens[$i + 1], array_keys(self::LOGICAL_OPERATORS)) || self::isProximityOperator($arrayTokens[$i + 1])) {
-                $logicalOperator = $arrayTokens[$i + 1];
-            } else {
-                $logicalOperator = 'AND';
-            }
+        if (null !== $key && isset($arrayTokens[$key + 1])) {
+            $logicalOperator = LogicalOperator::create($arrayTokens[$key + 1]);
+        } else {
+            $logicalOperator = LogicalOperator::create('AND');
         }
 
         return $logicalOperator;
     }
 
-    /**
-     * @param int   $i
-     * @param int   $count
-     * @param array $arrayTokens
-     *
-     * @return array
-     */
-    private function processBrackets(int $i, int $count, array $arrayTokens): array
+    private function processBrackets(int $key, array $arrayTokens): array
     {
         $subQuery = [];
         $open = 0;
         $returnKey = null;
-        for ($j = $i; $j < $count; $j++) {
-            if ('(' === substr($arrayTokens[$j], 0, 1) || '-(' === substr($arrayTokens[$j], 0, 2)) {
+        $count = count($arrayTokens);
+        for ($i = $key; $i < $count; $i++) {
+            if ('(' === substr($arrayTokens[$i], 0, 1) || '-(' === substr($arrayTokens[$i], 0, 2)) {
                 $open++;
             }
-            if (')' === substr($arrayTokens[$j], -1, 1)) {
+            if (')' === substr($arrayTokens[$i], -1, 1)) {
                 $open--;
                 if (0 === $open) {
-                    $returnKey = $j;
+                    $returnKey = $i;
                 }
             }
-            $subQuery[] = $arrayTokens[$j];
+            $subQuery[] = $arrayTokens[$i];
             if (null !== $returnKey) {
                 break;
             }
@@ -206,22 +169,16 @@ class HumanToTsQuery
         return ['key' => $returnKey, 'subQuery' => substr(implode(' ', $subQuery), 1, -1)];
     }
 
-    /**
-     * @param int   $i
-     * @param int   $count
-     * @param array $arrayTokens
-     *
-     * @return array
-     */
-    private function processQuotes(int $i, int $count, array $arrayTokens): array
+    private function processQuotes(int $key, array $arrayTokens): array
     {
         $subQuery = [];
         $returnKey = null;
-        for ($j = $i; $j < $count; $j++) {
-            if ('"' === substr($arrayTokens[$j], -1, 1)) {
-                $returnKey = $j;
+        $count = count($arrayTokens);
+        for ($i = $key; $i < $count; $i++) {
+            if ('"' === substr($arrayTokens[$i], -1, 1)) {
+                $returnKey = $i;
             }
-            $subQuery[] = $arrayTokens[$j];
+            $subQuery[] = $arrayTokens[$i];
             if (null !== $returnKey) {
                 break;
             }
@@ -230,24 +187,6 @@ class HumanToTsQuery
         return ['key' => $returnKey, 'subQuery' => substr(implode(' ', $subQuery), 1, -1)];
     }
 
-    /**
-     * @param int   $i
-     * @param int   $count
-     * @param array $arrayTokens
-     *
-     * @return array
-     */
-    private function processProximity(int $i, array $arrayTokens): array
-    {
-        $subQuery = [$arrayTokens[$i], $arrayTokens[$i + 1], $arrayTokens[$i + 2]];
-        $returnKey = $i + 2;
-
-        return ['key' => $returnKey, 'subQuery' => implode(' ', $subQuery)];
-    }
-
-    /**
-     * @throws HumanToTsQueryException
-     */
     private function validate(): void
     {
         if (!$this->checkBracketsAndQuotes()) {
@@ -257,7 +196,14 @@ class HumanToTsQuery
         $this->token = str_replace('/<\d+>/', '', $this->token);
         $this->token = trim(preg_replace('/\s{2,}/', ' ', $this->token));
         $this->token = str_replace(['( ', ' )'], ['(', ')'], $this->token);
-        $this->token = str_replace(['((((', '))))', '(((', ')))', '((', '))'], ['( ( ( (', ') ) ) )', '( ( (', ') ) )', '( (', ') )'], $this->token);
+        $search = $replace = [];
+        foreach (range(2, 10) as $num) {
+            $search[] = str_repeat('(', $num);
+            $search[] = str_repeat(')', $num);
+            $replace[] = trim(str_repeat('( ', $num));
+            $replace[] = trim(str_repeat(' )', $num));
+        }
+        $this->token = str_replace($search, $replace, $this->token);
         preg_match_all('/"([^"]*)"/', $this->token, $matched);
         $this->token = str_replace(
             $matched[0],
@@ -269,11 +215,19 @@ class HumanToTsQuery
             ),
             $this->token
         );
+        $pattern = '';
+        $operators = ['AND', 'OR', 'N\d+', 'W\d+'];
+        foreach ($operators as $operator) {
+            foreach ($operators as $operator2) {
+                $pattern .= sprintf('%s %s|', $operator, $operator2);
+            }
+        }
+        $pattern = trim($pattern, '|');
+        if (preg_match("/$pattern/", $this->token)) {
+            throw new HumanToTsQueryException(sprintf('The query is not valid: %s', $this->token));
+        }
     }
 
-    /**
-     * @return bool
-     */
     private function checkBracketsAndQuotes(): bool
     {
         $len = strlen($this->token);
@@ -281,28 +235,17 @@ class HumanToTsQuery
         for ($i = 0; $i < $len; $i++) {
             switch ($this->token[$i]) {
                 case '(':
-                    array_push($brackets, 0); break;
+                    $brackets[] = 0; break;
                 case ')':
-                    if (array_pop($brackets) !== 0)
+                    if (array_pop($brackets) !== 0) {
                         return false;
+                    }
                     break;
                 case '"':
-                    array_push($quotes, 1); break;
+                    $quotes[] = 1; break;
                 default: break;
             }
         }
         return 0 === count($brackets) && count($quotes) % 2 === 0;
-    }
-
-    private function checkProximitySearch(int $i, array $arrayTokens): bool 
-    {
-        return isset($arrayTokens[$i + 1]) && 
-                self::isProximityOperator($arrayTokens[$i + 1]) && 
-                isset($arrayTokens[$i + 2]);
-    }
-
-    protected static function isProximityOperator(string $str): bool 
-    {
-        return preg_match('/^[NW]\d+$/', $str);
     }
 }
