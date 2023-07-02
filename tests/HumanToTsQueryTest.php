@@ -70,7 +70,7 @@ class HumanToTsQueryTest extends TestCase
             ['Nissan\'s AND -\'Qashqai\' (auto AND \'car\' (patrol OR diesel OR "electric car") AND sale)'],
             ['(Opel N2 auto) AND (auto car (patrol OR diesel OR "electric car") AND sale)'],
             ['(Opel W2 auto) AND (auto car (patrol OR diesel OR "electric car") AND sale)'],
-            ['Opel N5 car'],
+            ['Opel N1 car'],
             ['Opel W5 car'],
         ];
     }

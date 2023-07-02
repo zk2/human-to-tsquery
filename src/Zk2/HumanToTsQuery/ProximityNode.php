@@ -22,13 +22,6 @@ class ProximityNode extends HumanToTsQuery implements HumanToTsQueryInterface
      */
     protected $rightNode;
 
-    /**
-     * ProximityNode constructor.
-     *
-     * @param string      $token
-     * @param bool        $exclude
-     * @param string|null $logicalOperator
-     */
     public function __construct(HumanToTsQuery $leftNode, HumanToTsQuery $rightNode, bool $exclude, ?LogicalOperator $logicalOperator, ?\Closure $sqlExecutor = null, string $conf = 'english')
     {
         $this->leftNode = $leftNode;
@@ -50,9 +43,10 @@ class ProximityNode extends HumanToTsQuery implements HumanToTsQueryInterface
         $rightTsQuery = $this->rightNode->buildTsQuery()->buildQuery();
         $tsQuery = '';
         for ($i = $this->leftNode->logicalOperator->getOperator(); $i > 0; $i--) {
-            $tsQuery .= "$leftTsQuery <$i> $rightTsQuery | ";
+            $proximity = $i + 1;
+            $tsQuery .= "$leftTsQuery <$proximity> $rightTsQuery | ";
             if ('N' === $this->leftNode->logicalOperator->getName()) {
-                $tsQuery .= "$rightTsQuery <$i> $leftTsQuery | ";
+                $tsQuery .= "$rightTsQuery <$proximity> $leftTsQuery | ";
             }
         }
 
