@@ -269,6 +269,7 @@ class HumanToTsQuery
             }
         }
         $pattern = trim($pattern, '|');
+        $pattern = preg_replace('/\s+/', ' ', $pattern);
         if (preg_match("/$pattern/", $this->token)) {
             throw new HumanToTsQueryException(sprintf('The query is not valid: %s', $this->token));
         }
