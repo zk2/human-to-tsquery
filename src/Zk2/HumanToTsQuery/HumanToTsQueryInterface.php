@@ -13,4 +13,6 @@ namespace Zk2\HumanToTsQuery;
 interface HumanToTsQueryInterface
 {
     public function getQuery(\Closure $sqlExecutor = null, string $conf = 'english'): string;
+
+    public function getElasticSearchQuery(): string;
 }

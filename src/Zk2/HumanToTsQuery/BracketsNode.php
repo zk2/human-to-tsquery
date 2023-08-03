@@ -26,4 +26,14 @@ class BracketsNode extends HumanToTsQuery implements HumanToTsQueryInterface
         }
         return sprintf('%s(%s) %s ', $this->exclude ? '!' : null, trim($token), $this->logicalOperator);
     }
+
+    protected function buildElasticSearchQuery(): ?string
+    {
+        $token = '';
+        foreach ($this->nodes as $node) {
+            $token .= $node->buildEsQuery()->buildElasticSearchQuery();
+        }
+        $operator = $this->logicalOperator ? $this->logicalOperator->getName() : null;
+        return sprintf('%s(%s) %s ', $this->exclude ? ' NOT ' : null, trim($token), $operator);
+    }
 }

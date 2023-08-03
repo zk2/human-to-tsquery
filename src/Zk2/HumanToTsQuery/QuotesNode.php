@@ -17,8 +17,19 @@ class QuotesNode extends HumanToTsQuery implements HumanToTsQueryInterface
     protected function buildQuery(): ?string
     {
         $this->buildTsQuery();
-        if ($this->tsQuery) {
-            return sprintf('%s(%s) %s ', $this->exclude ? '!' : null, $this->tsQuery, $this->logicalOperator);
+        if ($this->query) {
+            return sprintf('%s(%s) %s ', $this->exclude ? '!' : null, $this->query, $this->logicalOperator);
+        }
+
+        return null;
+    }
+
+    protected function buildElasticSearchQuery(): ?string
+    {
+        $this->buildEsQuery();
+        if ($this->query) {
+            $operator = $this->logicalOperator ? $this->logicalOperator->getName() : null;
+            return sprintf('%s"%s" %s ', $this->exclude ? ' NOT ' : null, $this->query, $operator);
         }
 
         return null;

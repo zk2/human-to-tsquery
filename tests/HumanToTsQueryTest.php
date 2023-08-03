@@ -13,6 +13,8 @@ namespace Zk2\Tests;
 use Doctrine\DBAL\Configuration;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DriverManager;
+use Elastic\Elasticsearch\Client;
+use Elastic\Elasticsearch\ClientBuilder;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnitColors\Display;
@@ -23,7 +25,11 @@ class HumanToTsQueryTest extends TestCase
 {
     protected Connection $connection;
 
+    protected ?Client $elastic = null;
+
     protected bool $realPostgres = false;
+
+    protected bool $realElastic = false;
 
     /**
      * @dataProvider humanQueries
@@ -40,6 +46,27 @@ class HumanToTsQueryTest extends TestCase
         $humanToTsQuery = new HumanToTsQuery($humanQuery);
         $tsQuery = $humanToTsQuery->getQuery($function);
         $this->assertNotEmpty($tsQuery);
+        $esQuery = $humanToTsQuery->getElasticSearchQuery();
+        $this->assertNotEmpty($esQuery);
+        if ($this->realElastic) {
+            $params = [
+                "index" => 'human-to-tsquery',
+                "body" => [
+                    "query" => [
+                        "bool" => [
+                            "should" => [
+                                "query_string" => [
+                                    "query" => $esQuery,
+                                ],
+                            ],
+                        ],
+                    ],
+                    "_source" => false,
+                ],
+            ];
+            $res = $this->elastic->search($params)->getStatusCode();
+            $this->assertEquals(200, $res);
+        }
     }
 
     /**
@@ -50,12 +77,16 @@ class HumanToTsQueryTest extends TestCase
         $this->expectException(HumanToTsQueryException::class);
         $humanToTsQuery = new HumanToTsQuery($humanQuery);
         $humanToTsQuery->getQuery();
+        $humanToTsQuery->getElasticSearchQuery();
     }
 
     public function testIsPostgres(): void
     {
         if (false === $this->realPostgres) {
-            echo Display::caution(" Docker is down...");
+            echo Display::caution(" Postgresql is down...");
+        }
+        if (false === $this->realElastic) {
+            echo Display::caution(" ElasticSearch is down...");
         }
         $this->assertTrue(true);
     }
@@ -72,6 +103,7 @@ class HumanToTsQueryTest extends TestCase
             ['(Opel W2 auto) AND (auto car (patrol OR diesel OR "electric car") AND sale)'],
             ['Opel N1 car'],
             ['Opel W5 car'],
+            ['intitle:"مقالاتي" -"market growth" -"market report" -"research report" -"market research" -"market analysis" -"service market"'],
         ];
     }
 
@@ -135,6 +167,18 @@ class HumanToTsQueryTest extends TestCase
             $this->connection = DriverManager::getConnection($connectionParams, $config);
         } else {
             $this->connection = $this->getConnectionMock();
+        }
+        $check = @fsockopen('127.0.0.1', 9222);
+        $this->realElastic = (bool) $check;
+        if (false !== $check) {
+            fclose($check);
+            $cb = ClientBuilder::create()
+                ->setHosts(['http://127.0.0.1:9222']);
+            $this->elastic = $cb->build();
+            if (!$this->elastic->indices()->exists(["index" => 'human-to-tsquery'])->asBool()) {
+                $this->elastic->indices()->create(['index' => 'human-to-tsquery']);
+                $this->elastic->info();
+            }
         }
     }
 }

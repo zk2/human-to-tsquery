@@ -38,18 +38,28 @@ class ProximityNode extends HumanToTsQuery implements HumanToTsQueryInterface
      */
     protected function buildQuery(): ?string
     {
-        $leftTsQuery = $this->leftNode->buildTsQuery()->buildQuery();
-        $leftTsQuery = trim($leftTsQuery, ' ' . $this->leftNode->logicalOperator->getOperator()) . ' ';
-        $rightTsQuery = $this->rightNode->buildTsQuery()->buildQuery();
-        $tsQuery = '';
+        $leftQuery = $this->leftNode->buildTsQuery()->buildQuery();
+        $leftQuery = trim($leftQuery, ' ' . $this->leftNode->logicalOperator->getOperator()) . ' ';
+        $rightQuery = $this->rightNode->buildTsQuery()->buildQuery();
+        $query = '';
         for ($i = $this->leftNode->logicalOperator->getOperator(); $i > 0; $i--) {
             $proximity = $i + 1;
-            $tsQuery .= "$leftTsQuery <$proximity> $rightTsQuery | ";
+            $query .= "$leftQuery <$proximity> $rightQuery | ";
             if ('N' === $this->leftNode->logicalOperator->getName()) {
-                $tsQuery .= "$rightTsQuery <$proximity> $leftTsQuery | ";
+                $query .= "$rightQuery <$proximity> $leftQuery | ";
             }
         }
 
-        return sprintf('(%s) %s ', trim($tsQuery, '| '), $this->logicalOperator);
+        return sprintf('(%s) %s ', trim($query, '| '), $this->logicalOperator);
+    }
+
+    protected function buildElasticSearchQuery(): ?string
+    {
+        $leftQuery = $this->leftNode->buildEsQuery()->buildElasticSearchQuery();
+        $leftQuery = trim($leftQuery, ' ' . $this->leftNode->logicalOperator->getName()) . ' ';
+        $rightQuery = $this->rightNode->buildEsQuery()->buildElasticSearchQuery();
+        $query = sprintf('"\"%s\" \"%s\""~%u', trim($leftQuery), trim($rightQuery), $this->leftNode->logicalOperator->getOperator());
+
+        return sprintf('(%s) %s ', trim($query, '| '), $this->logicalOperator->getName());
     }
 }

@@ -12,6 +12,15 @@ namespace Zk2\HumanToTsQuery;
 
 class HumanToTsQuery
 {
+    const PG_SEARCH = 'postgres';
+
+    const ES_SEARCH = 'elastic';
+
+    const AVAILABLE_SEARCH = [
+        self::PG_SEARCH,
+        self::ES_SEARCH,
+    ];
+
     const TS_FUNCTION = null;
 
     /**
@@ -21,7 +30,7 @@ class HumanToTsQuery
 
     protected string $token;
 
-    protected ?string $tsQuery = null;
+    protected ?string $query = null;
 
     protected bool $exclude = false;
 
@@ -57,21 +66,53 @@ class HumanToTsQuery
         return str_replace("'", "", trim(str_replace('&)', ')', $tsQuery), ' |&'));
     }
 
+    public function getElasticSearchQuery(): string
+    {
+        $this->validate();
+        $this->parse();
+        $esQuery = '';
+        foreach ($this->nodes as $node) {
+            $esQuery .= $node->buildElasticSearchQuery();
+        }
+        $esQuery = trim(str_replace(['AND)', 'OR)'], ')', $esQuery));
+        if ('AND' === substr($esQuery, -3, 3)) {
+            $esQuery = substr($esQuery, 0, strlen($esQuery) - 3);
+        }
+        if ('OR' === substr($esQuery, -2, 2)) {
+            $esQuery = substr($esQuery, 0, strlen($esQuery) - 2);
+        }
+
+        return trim($esQuery);
+    }
+
     protected function buildTsQuery(): self
     {
         if ($function = static::TS_FUNCTION) {
             if ($this->sqlExecutor) {
-                $this->tsQuery = $this->sqlExecutor
+                $this->query = $this->sqlExecutor
                     ->bindTo($this)
                     ->call(
                         $this, sprintf("SELECT %s('%s', '%s')", $function, $this->conf, str_replace("'", "''", $this->token))
                     );
             } else {
-                $this->tsQuery = $this->token;
+                $this->query = $this->token;
             }
         } elseif ($this->nodes) {
             foreach ($this->nodes as $node) {
                 $node->buildTsQuery();
+            }
+        }
+
+        return $this;
+    }
+
+    protected function buildEsQuery(): self
+    {
+        if (static::TS_FUNCTION) {
+            $this->query = $this->token;
+        } elseif ($this->nodes) {
+            foreach ($this->nodes as $node) {
+                $node->buildEsQuery();
             }
         }
 
@@ -129,6 +170,11 @@ class HumanToTsQuery
     }
 
     protected function buildQuery(): ?string
+    {
+        throw new HumanToTsQueryException('The method is available only for end nodes.');
+    }
+
+    protected function buildElasticSearchQuery(): ?string
     {
         throw new HumanToTsQueryException('The method is available only for end nodes.');
     }
@@ -216,7 +262,7 @@ class HumanToTsQuery
             $this->token
         );
         $pattern = '';
-        $operators = ['AND', 'OR', 'N\d+', 'W\d+'];
+        $operators = [' AND ', ' OR ', ' N\d+ ', ' W\d+ '];
         foreach ($operators as $operator) {
             foreach ($operators as $operator2) {
                 $pattern .= sprintf('%s %s|', $operator, $operator2);

@@ -5,9 +5,26 @@ services:
     image: postgres:14-alpine
     ports:
       - "5444:5432"
-    volumes:
-      - "/tmp/human-to-tsquery/data:/var/lib/postgresql/data"
     environment:
       POSTGRES_DB: human-to-tsquery
       POSTGRES_USER: human-to-tsquery
       POSTGRES_PASSWORD: human-to-tsquery
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.8.0
+    container_name: elasticsearch
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    ports:
+      - "9222:9200"
+      - "9333:9300"

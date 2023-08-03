@@ -32,6 +32,13 @@
         "phpunit/phpunit": "^8.5",
         "doctrine/dbal": "^2.10",
         "symfony/var-dumper": "^5.0",
-        "1happyplace/phpunit-colors": "^1.1"
+        "1happyplace/phpunit-colors": "^1.1",
+        "elasticsearch/elasticsearch": "^8.8",
+        "ext-curl": "*"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
     }
 }
