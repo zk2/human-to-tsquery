@@ -16,7 +16,7 @@ before-install:
   - composer self-update
 
 install:
-    - composer install
+    - composer update
 
 script:
     - php ./vendor/bin/phpunit
