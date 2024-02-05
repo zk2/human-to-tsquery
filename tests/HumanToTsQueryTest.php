@@ -133,6 +133,194 @@ class HumanToTsQueryTest extends TestCase
         return $mock;
     }
 
+    /**
+     * @dataProvider esCompoundQueries
+     */
+    public function testEsCompoundQuery(string $humanQuery, array $expectedEsQuery): void
+    {
+        $humanToTsQuery = new HumanToTsQuery($humanQuery);
+        $esQuery = $humanToTsQuery->getElasticCompoundSearchQuery(
+            [
+                'fields' => ['field_1', 'field_2'],
+                'quotes' => ['field_1_q', 'field_2_q'],
+            ]
+        );
+
+        $this->assertEquals($expectedEsQuery, $esQuery);
+        if ($this->realElastic) {
+            $params = [
+                "index" => 'human-to-tsquery',
+                "body" => [
+                    "query" => $esQuery,
+                    "_source" => false,
+                ],
+            ];
+            $res = $this->elastic->search($params)->getStatusCode();
+            $this->assertEquals(200, $res);
+        }
+    }
+
+    public function esCompoundQueries(): array
+    {
+        return [
+            [
+                '(indigenous OR texas) W2 ("debt financing" OR lalala) AND ("New York" OR Boston)',
+                ['bool' => [
+                    'must' => [
+                        ['bool' => ['should' => [
+                            ['intervals' =>
+                                ['field_1' =>
+                                    ['all_of' => [
+                                        'max_gaps' => '2',
+                                        'intervals' =>
+                                            [
+                                                ['match' => ['query' => 'indigenous OR texas']],
+                                                ['match' => ['query' => '"debt financing" OR lalala']]
+                                            ],
+
+                                    ]]]
+                            ],
+                            ['intervals' =>
+                                ['field_2' =>
+                                    ['all_of' => [
+                                        'max_gaps' => '2',
+                                        'intervals' =>
+                                            [
+                                                ['match' => ['query' => 'indigenous OR texas']],
+                                                ['match' => ['query' => '"debt financing" OR lalala']]
+                                            ],
+                                    ]]]
+                            ]
+                        ]]],
+                        ['bool' => ['should' =>
+                            [
+                                ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"New York"']],
+                                ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'Boston']]]
+                        ]]
+                    ]
+                ]]
+            ],
+            [
+                'Opel OR (auto car AND (patrol OR diesel OR "electric car") AND sale)',
+                ['bool' => ['should' => [
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'Opel']],
+                        ['bool' => [
+                                'must' => [
+                                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'auto']],
+                                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'car']],
+                                    [
+                                        'bool' => ['should' => [
+                                            ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'patrol']],
+                                            ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'diesel']],
+                                            ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"electric car"']],
+                                        ]]
+                                    ],
+                                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'sale']],
+                                ]
+                            ]
+                        ],
+                    ]]]
+            ],
+            [
+                'Nissan\'s AND \'Qashqai\' auto AND (patrol OR diesel OR "electric car")',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'Nissan\'s']],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => '\'Qashqai\'']],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'auto']],
+                    ['bool' => ['should' => [
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'patrol']],
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'diesel']],
+                        ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"electric car"']],
+                    ]]]
+                ]]]
+            ],
+            [
+                'Opel -sale',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'Opel']],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'NOT sale']],
+                ]]]
+            ],
+            [
+                'Opel OR car -sale',
+                ['bool' => ['must' => [
+                    ['bool' => ['should' => [
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'Opel']],
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'car']],
+                    ]]],
+                    ['bool' => ['must' => [
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'NOT sale']],
+                    ]]],
+                ]]]
+            ],
+            [
+            '"big bus" AND (Opel OR car) -sale -"car shop"',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"big bus"']],
+                    ['bool' => ['should' => [
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'Opel']],
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'car']],
+                    ]]],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'NOT sale']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "car shop"']],
+                ]]]
+            ],
+            [
+                'Opel N1 car',
+                ['bool' => ['must' => [
+                    ['bool' => ['should' => [
+                        ['intervals' =>
+                            ['field_1' =>
+                                ['all_of' => [
+                                    'max_gaps' => '1',
+                                    'intervals' => [['match' => ['query' => 'Opel']], ['match' => ['query' => 'car']]],
+                                ]]]
+                        ],
+                        ['intervals' =>
+                            ['field_2' =>
+                                ['all_of' => [
+                                    'max_gaps' => '1',
+                                    'intervals' => [['match' => ['query' => 'Opel']], ['match' => ['query' => 'car']]],
+                                ]]]
+                        ]
+                    ]]]
+                ]]],
+            ],
+            [
+                'Opel W5 car',
+                ['bool' => ['must' => [
+                    ['bool' => ['should' => [
+                        ['intervals' =>
+                            ['field_1' =>
+                                ['all_of' => [
+                                    'max_gaps' => '5',
+                                    'intervals' => [['match' => ['query' => 'Opel']], ['match' => ['query' => 'car']]],
+                                ]]]
+                        ],
+                        ['intervals' =>
+                            ['field_2' =>
+                                ['all_of' => [
+                                    'max_gaps' => '5',
+                                    'intervals' => [['match' => ['query' => 'Opel']], ['match' => ['query' => 'car']]],
+                                ]]]
+                        ]
+                    ]]]
+                ]]],
+            ],
+            [
+                '"market growth" -"market report" -"research report" -"market research" -"market analysis" -"service market"',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"market growth"']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "market report"']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "research report"']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "market research"']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "market analysis"']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "service market"']],
+                ]]]
+            ],
+        ];
+    }
+
     protected function getStatementMock(): MockObject
     {
         $mock = $this->getAbstractMock('Doctrine\DBAL\Driver\Statement', ['fetchOne']);

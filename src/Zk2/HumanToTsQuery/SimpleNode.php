@@ -35,4 +35,21 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
 
         return null;
     }
+
+    protected function buildElasticSearchCompoundQuery(array $fields): ?array
+    {
+        $this->buildEsQuery();
+        if ($this->query) {
+            $this->query = str_replace([':'], ['\:'], $this->query);
+
+            return [
+                'query_string' => [
+                    'fields' => $fields['fields'] ?? $fields,
+                    'query' => sprintf('%s%s', $this->exclude ? 'NOT ' : null, $this->query)
+                ],
+            ];
+        }
+
+        return null;
+    }
 }

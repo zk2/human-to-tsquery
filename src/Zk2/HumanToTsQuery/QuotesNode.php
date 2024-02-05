@@ -34,4 +34,19 @@ class QuotesNode extends HumanToTsQuery implements HumanToTsQueryInterface
 
         return null;
     }
+
+    protected function buildElasticSearchCompoundQuery(array $fields): ?array
+    {
+        $this->buildEsQuery();
+        if ($this->query) {
+            return [
+                'query_string' => [
+                    'fields' => $fields['quotes'] ?? $fields ,
+                    'query' => sprintf('%s"%s"', $this->exclude ? 'NOT ' : null, $this->query)
+                ],
+            ];
+        }
+
+        return null;
+    }
 }

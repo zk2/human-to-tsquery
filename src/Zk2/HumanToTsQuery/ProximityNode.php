@@ -62,4 +62,40 @@ class ProximityNode extends HumanToTsQuery implements HumanToTsQueryInterface
 
         return sprintf('(%s) %s ', trim($query, '| '), $this->logicalOperator->getName());
     }
+
+    protected function buildElasticSearchCompoundQuery(array $fields): ?array
+    {
+        $leftQuery = $this->leftNode->buildEsQuery()->buildElasticSearchQuery();
+        $leftQuery = trim($leftQuery, ' ()' . $this->leftNode->logicalOperator->getName());
+        $rightQuery = $this->rightNode->buildEsQuery()->buildElasticSearchQuery();
+        $rightQuery = trim($rightQuery, ' ()');
+        $fields = $fields['fields'] ?? $fields;
+        $queries = [];
+
+        if (str_ends_with($rightQuery, 'AND')) {
+            $rightQuery = trim(substr_replace($rightQuery, '', -3));
+        }
+        if (str_ends_with($leftQuery, 'AND')) {
+            $leftQuery = trim(substr_replace($leftQuery, '', -3));
+        }
+
+        foreach ($fields as $field) {
+            $queries[] = [
+                'intervals' => [
+                    $field => [
+                        'all_of' => [
+                            'max_gaps' => $this->leftNode->logicalOperator->getOperator(),
+                            'intervals' => [['match' => ['query' => $leftQuery]], ['match' => ['query' => $rightQuery]]],
+                        ],
+                    ],
+                ],
+            ];
+        }
+
+        if (1 === count($queries)) {
+            return $queries[0];
+        }
+
+        return ['bool' => ['should' => $queries]];
+    }
 }

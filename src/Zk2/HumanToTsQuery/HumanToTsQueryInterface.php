@@ -15,4 +15,6 @@ interface HumanToTsQueryInterface
     public function getQuery(\Closure $sqlExecutor = null, string $conf = 'english'): string;
 
     public function getElasticSearchQuery(): string;
+
+    public function getElasticCompoundSearchQuery(array $fields): ?array;
 }

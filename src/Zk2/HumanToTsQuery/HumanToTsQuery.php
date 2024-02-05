@@ -85,6 +85,36 @@ class HumanToTsQuery
         return trim($esQuery);
     }
 
+    public function getElasticCompoundSearchQuery(array $fields): ?array
+    {
+        $this->validate();
+        $this->parse();
+
+        return $this->buildElasticSearchCompoundQuery($fields);
+    }
+
+    protected function checkLogicalOperators(): bool
+    {
+        $prevOperator = null;
+        $exludesStart = false;
+        $lastKey = count($this->nodes) - 1;
+
+        foreach ($this->nodes as $num => $node) {
+            if (!is_null($prevOperator) && $prevOperator !== $node->logicalOperator->getName() && $num !== $lastKey && !$this->nodes[$num + 1]->exclude) {
+                return false;
+            }
+            if ($exludesStart && !$node->exclude) {
+                return false;
+            }
+            if ($num !== $lastKey && $this->nodes[$num + 1]->exclude) {
+                $exludesStart = true;
+            }
+            $prevOperator = $node->logicalOperator->getName();
+        }
+
+        return true;
+    }
+
     protected function buildTsQuery(): self
     {
         if ($function = static::TS_FUNCTION) {
@@ -177,6 +207,44 @@ class HumanToTsQuery
     protected function buildElasticSearchQuery(): ?string
     {
         throw new HumanToTsQueryException('The method is available only for end nodes.');
+    }
+
+    protected function buildElasticSearchCompoundQuery(array $fields): ?array
+    {
+        if (!$this->checkLogicalOperators()) {
+            throw new HumanToTsQueryException(
+                sprintf(
+                    'The query contain not valid logical operator set: %s. Use brackets to set priority',
+                    $this->token
+                )
+            );
+        }
+        $esQueries = $esExcludeQueries = [];
+        $cond = 'must';
+
+        foreach ($this->nodes as $node) {
+            if ($node->exclude) {
+                $esExcludeQueries[] = $node->buildElasticSearchCompoundQuery($fields);
+            } else {
+                $esQueries[] = $node->buildElasticSearchCompoundQuery($fields);
+            }
+            if ($node->logicalOperator->isLogical() && 'OR' === $node->logicalOperator->getName()) {
+                $cond = 'should';
+            }
+        }
+
+        if ($esExcludeQueries && 'should' === $cond) {
+            return [
+                'bool' => [
+                    'must' => [
+                        ['bool' => [$cond => $esQueries]],
+                        ['bool' => ['must' => $esExcludeQueries]],
+                    ]
+                ]
+            ];
+        }
+
+        return ['bool' => [$cond => array_values(array_filter(array_merge($esQueries, $esExcludeQueries)))]];
     }
 
     private function defineLogicalOperator(array $arrayTokens, ?int $key): LogicalOperator
