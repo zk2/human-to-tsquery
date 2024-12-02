@@ -42,7 +42,7 @@ class HumanToTsQuery
 
     protected string $conf = 'english';
 
-    public function __construct(string $token, bool $exclude = false, ?LogicalOperator $logicalOperator = null, \Closure $sqlExecutor = null, string $conf = 'english')
+    public function __construct(string $token, bool $exclude = false, ?LogicalOperator $logicalOperator = null, ?\Closure $sqlExecutor = null, string $conf = 'english')
     {
         $this->token = $token;
         $this->countOfLexemes = count(explode(' ', $token));
@@ -52,7 +52,7 @@ class HumanToTsQuery
         $this->conf = $conf;
     }
 
-    public function getQuery(\Closure $sqlExecutor = null, string $conf = 'english'): string
+    public function getQuery(?\Closure $sqlExecutor = null, string $conf = 'english'): string
     {
         $this->validate();
         $this->sqlExecutor = $sqlExecutor;
