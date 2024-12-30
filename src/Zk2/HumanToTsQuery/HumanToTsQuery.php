@@ -214,7 +214,7 @@ class HumanToTsQuery
         if (!$this->checkLogicalOperators()) {
             throw new HumanToTsQueryException(
                 sprintf(
-                    'The query contain not valid logical operator set: %s. Use brackets to set priority',
+                    'The query does not contain a valid set of logical operators: %s. Use brackets to set priority',
                     $this->token
                 )
             );
