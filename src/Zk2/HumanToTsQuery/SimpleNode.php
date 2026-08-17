@@ -14,6 +14,20 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
 {
     const TS_FUNCTION = 'plainto_tsquery';
 
+    /**
+     * Characters that Lucene's classic query parser reads as operators or term separators.
+     * A bare word built with them never means what the user typed: "agri-food" is parsed
+     * as "agri OR food" and "9/11" does not parse at all. Such a word is sent as a phrase
+     * instead - the same way QuotesNode sends an explicitly quoted one.
+     */
+    const OPERATOR_CHARS = '-+!^/\\[]{}';
+
+    /**
+     * Wildcard and fuzziness operators. A word carrying one of them is left as is: there
+     * the operator is the point of the query, not a typo.
+     */
+    const PATTERN_CHARS = '*?~';
+
     protected function buildQuery(): ?string
     {
         $this->buildTsQuery();
@@ -28,9 +42,12 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
     {
         $this->buildEsQuery();
         if ($this->query) {
+            $phrase = $this->needsPhrase();
             $this->query = str_replace([':'], ['\:'], $this->query);
             $operator = $this->logicalOperator ? $this->logicalOperator->getName() : null;
-            return sprintf('%s%s %s ', $this->exclude ? ' NOT ' : null, $this->query, $operator);
+            $query = $phrase ? sprintf('"%s"', $this->query) : $this->query;
+
+            return sprintf('%s%s %s ', $this->exclude ? ' NOT ' : null, $query, $operator);
         }
 
         return null;
@@ -40,7 +57,17 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
     {
         $this->buildEsQuery();
         if ($this->query) {
+            $phrase = $this->needsPhrase();
             $this->query = str_replace([':'], ['\:'], $this->query);
+
+            if ($phrase) {
+                return [
+                    'query_string' => [
+                        'fields' => $fields['quotes'] ?? $fields,
+                        'query' => sprintf('%s"%s"', $this->exclude ? 'NOT ' : null, $this->query)
+                    ],
+                ];
+            }
 
             return [
                 'query_string' => [
@@ -51,5 +78,18 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
         }
 
         return null;
+    }
+
+    /**
+     * Must be called before the query is escaped: escaping adds a backslash, which is
+     * itself one of the operator characters.
+     */
+    private function needsPhrase(): bool
+    {
+        if (strcspn($this->query, self::PATTERN_CHARS) !== strlen($this->query)) {
+            return false;
+        }
+
+        return strcspn($this->query, self::OPERATOR_CHARS) !== strlen($this->query);
     }
 }

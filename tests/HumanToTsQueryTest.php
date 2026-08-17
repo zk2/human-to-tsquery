@@ -318,6 +318,34 @@ class HumanToTsQueryTest extends TestCase
                     ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "service market"']],
                 ]]]
             ],
+            [
+                'agri-food OR agri-technology',
+                ['bool' => ['should' => [
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"agri-food"']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"agri-technology"']],
+                ]]]
+            ],
+            [
+                'covid-19 AND vaccine',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"covid-19"']],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'vaccine']],
+                ]]]
+            ],
+            [
+                'attack -9/11',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'attack']],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => 'NOT "9/11"']],
+                ]]]
+            ],
+            [
+                'agri* AND food?',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'agri*']],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'food?']],
+                ]]]
+            ],
         ];
     }
 
