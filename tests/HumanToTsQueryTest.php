@@ -160,6 +160,55 @@ class HumanToTsQueryTest extends TestCase
         }
     }
 
+    /**
+     * @dataProvider esCompoundFieldQueries
+     */
+    public function testEsCompoundFields(string $humanQuery, array $expectedEsQuery): void
+    {
+        $humanToTsQuery = new HumanToTsQuery($humanQuery);
+        $esQuery = $humanToTsQuery->getElasticCompoundSearchQuery(
+            [
+                'fields' => ['field_1', 'field_2'],
+                'quotes' => ['field_1_q', 'field_2_q'],
+                'compound' => ['field_1_c'],
+                'compound_options' => ['quote_analyzer' => 'my_analyzer'],
+            ]
+        );
+
+        $this->assertEquals($expectedEsQuery, $esQuery);
+    }
+
+    public function esCompoundFieldQueries(): array
+    {
+        return [
+            // A word carrying an operator character goes to the compound fields, options and all.
+            [
+                'agri-food AND "New York" AND boston',
+                ['bool' => ['must' => [
+                    ['query_string' => [
+                        'fields' => ['field_1_c'],
+                        'query' => '"agri-food"',
+                        'quote_analyzer' => 'my_analyzer',
+                    ]],
+                    ['query_string' => ['fields' => ['field_1_q', 'field_2_q'], 'query' => '"New York"']],
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'boston']],
+                ]]]
+            ],
+            // Exclusion keeps the same channel.
+            [
+                'boston -agri-food',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'boston']],
+                    ['query_string' => [
+                        'fields' => ['field_1_c'],
+                        'query' => 'NOT "agri-food"',
+                        'quote_analyzer' => 'my_analyzer',
+                    ]],
+                ]]]
+            ],
+        ];
+    }
+
     public function esCompoundQueries(): array
     {
         return [

@@ -18,7 +18,12 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
      * Characters that Lucene's classic query parser reads as operators or term separators.
      * A bare word built with them never means what the user typed: "agri-food" is parsed
      * as "agri OR food" and "9/11" does not parse at all. Such a word is sent as a phrase
-     * instead - the same way QuotesNode sends an explicitly quoted one.
+     * instead.
+     *
+     * The phrase goes to the 'compound' fields, falling back to the 'quotes' ones a user
+     * typed the quotes for. Keeping the two apart lets an index answer an auto-built
+     * phrase from a differently analyzed field, and 'compound_options' carries whatever
+     * query_string options that field needs - a quote_analyzer, most likely.
      */
     const OPERATOR_CHARS = '-+!^/\\[]{}';
 
@@ -62,10 +67,13 @@ class SimpleNode extends HumanToTsQuery implements HumanToTsQueryInterface
 
             if ($phrase) {
                 return [
-                    'query_string' => [
-                        'fields' => $fields['quotes'] ?? $fields,
-                        'query' => sprintf('%s"%s"', $this->exclude ? 'NOT ' : null, $this->query)
-                    ],
+                    'query_string' => array_merge(
+                        [
+                            'fields' => $fields['compound'] ?? $fields['quotes'] ?? $fields,
+                            'query' => sprintf('%s"%s"', $this->exclude ? 'NOT ' : null, $this->query)
+                        ],
+                        $fields['compound_options'] ?? []
+                    ),
                 ];
             }
 
