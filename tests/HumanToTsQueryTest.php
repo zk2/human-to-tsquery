@@ -33,6 +33,7 @@ class HumanToTsQueryTest extends TestCase
 
     /**
      * @dataProvider humanQueries
+     * @throws HumanToTsQueryException
      */
     public function test(string $humanQuery): void
     {
@@ -135,6 +136,7 @@ class HumanToTsQueryTest extends TestCase
 
     /**
      * @dataProvider esCompoundQueries
+     * @throws HumanToTsQueryException
      */
     public function testEsCompoundQuery(string $humanQuery, array $expectedEsQuery): void
     {
