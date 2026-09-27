@@ -154,7 +154,10 @@ class HumanToTsQuery
         $arrayTokens = explode(' ', $this->token);
         $count = count($arrayTokens);
         for ($i = 0; $i < $count; $i++) {
-            if (LogicalOperator::check($arrayTokens[$i])) {
+            // validate() spaces out nested brackets ("((" becomes "( ("), so the query of an
+            // inner BracketsNode starts with a blank. As a node of its own it carried the
+            // default AND, and "((a AND b) OR c)" was rejected as a mix of operators.
+            if ('' === $arrayTokens[$i] || LogicalOperator::check($arrayTokens[$i])) {
                 continue;
             }
             $node = null;

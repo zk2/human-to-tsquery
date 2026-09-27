@@ -161,6 +161,24 @@ class HumanToTsQueryTest extends TestCase
     }
 
     /**
+     * @dataProvider esCompoundBadQueries
+     */
+    public function testEsCompoundBad(string $humanQuery): void
+    {
+        $this->expectException(HumanToTsQueryException::class);
+        (new HumanToTsQuery($humanQuery))->getElasticCompoundSearchQuery(['fields' => ['field_1']]);
+    }
+
+    public function esCompoundBadQueries(): array
+    {
+        return [
+            ['a AND b OR c'],
+            ['((a AND b OR c))'],
+            ['x AND (a AND b OR c)'],
+        ];
+    }
+
+    /**
      * @dataProvider esCompoundFieldQueries
      */
     public function testEsCompoundFields(string $humanQuery, array $expectedEsQuery): void
@@ -212,6 +230,21 @@ class HumanToTsQueryTest extends TestCase
     public function esCompoundQueries(): array
     {
         return [
+            [
+                // The inner query of a nested bracket used to start with a blank that became
+                // a node of its own with AND, so this was rejected as a mix of operators.
+                'x AND ((a AND b) OR c)',
+                ['bool' => ['must' => [
+                    ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'x']],
+                    ['bool' => ['should' => [
+                        ['bool' => ['must' => [
+                            ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'a']],
+                            ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'b']],
+                        ]]],
+                        ['query_string' => ['fields' => ['field_1', 'field_2'], 'query' => 'c']],
+                    ]]],
+                ]]],
+            ],
             [
                 '(indigenous OR texas) W2 ("debt financing" OR lalala) AND ("New York" OR Boston)',
                 ['bool' => [
