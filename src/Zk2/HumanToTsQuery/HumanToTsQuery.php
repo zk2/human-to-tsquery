@@ -52,6 +52,9 @@ class HumanToTsQuery
         $this->conf = $conf;
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     public function getQuery(?\Closure $sqlExecutor = null, string $conf = 'english'): string
     {
         $this->validate();
@@ -66,6 +69,9 @@ class HumanToTsQuery
         return str_replace("'", "", trim(str_replace('&)', ')', $tsQuery), ' |&'));
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     public function getElasticSearchQuery(): string
     {
         $this->validate();
@@ -85,6 +91,9 @@ class HumanToTsQuery
         return trim($esQuery);
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     public function getElasticCompoundSearchQuery(array $fields): ?array
     {
         $this->validate();
@@ -96,18 +105,18 @@ class HumanToTsQuery
     protected function checkLogicalOperators(): bool
     {
         $prevOperator = null;
-        $exludesStart = false;
+        $excludesStart = false;
         $lastKey = count($this->nodes) - 1;
 
         foreach ($this->nodes as $num => $node) {
             if (!is_null($prevOperator) && $prevOperator !== $node->logicalOperator->getName() && $num !== $lastKey && !$this->nodes[$num + 1]->exclude) {
                 return false;
             }
-            if ($exludesStart && !$node->exclude) {
+            if ($excludesStart && !$node->exclude) {
                 return false;
             }
             if ($num !== $lastKey && $this->nodes[$num + 1]->exclude) {
-                $exludesStart = true;
+                $excludesStart = true;
             }
             $prevOperator = $node->logicalOperator->getName();
         }
@@ -202,16 +211,25 @@ class HumanToTsQuery
         return $node;
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     protected function buildQuery(): ?string
     {
         throw new HumanToTsQueryException('The method is available only for end nodes.');
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     protected function buildElasticSearchQuery(): ?string
     {
         throw new HumanToTsQueryException('The method is available only for end nodes.');
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     protected function buildElasticSearchCompoundQuery(array $fields): ?array
     {
         if (!$this->checkLogicalOperators()) {
@@ -304,6 +322,9 @@ class HumanToTsQuery
         return ['key' => $returnKey, 'subQuery' => substr(implode(' ', $subQuery), 1, -1)];
     }
 
+    /**
+     * @throws HumanToTsQueryException
+     */
     private function validate(): void
     {
         if (!$this->checkBracketsAndQuotes()) {
